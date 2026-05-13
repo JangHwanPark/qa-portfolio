@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Demo Web - Login</title>
+  <style>
+    body { font-family: sans-serif; max-width: 420px; margin: 60px auto; }
+    label { display: block; margin-top: 12px; }
+    input { width: 100%; padding: 8px; }
+    button { margin-top: 16px; padding: 10px 16px; }
+    .error { color: #c00; margin-top: 12px; }
+    .ok { color: #060; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <h1>로그인</h1>
+  <form id="login-form">
+    <label>아이디 <input id="username" name="username" /></label>
+    <label>비밀번호 <input id="password" name="password" type="password" /></label>
+    <button id="submit" type="submit">로그인</button>
+  </form>
+  <div id="result" data-testid="result"></div>
+
+  <script>
+    document.getElementById('login-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const u = document.getElementById('username').value;
+      const p = document.getElementById('password').value;
+      const result = document.getElementById('result');
+      if (u === 'admin' && p === 'pass1234') {
+        result.className = 'ok';
+        result.textContent = '환영합니다, admin!';
+      } else {
+        result.className = 'error';
+        result.textContent = '아이디 또는 비밀번호가 올바르지 않습니다.';
+      }
+    });
+  </script>
+</body>
+</html>

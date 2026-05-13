@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter playwright-suite exec playwright install --with-deps
+      - run: pnpm --filter demo-web build
+      - run: pnpm --filter demo-web preview &
+      - run: pnpm --filter playwright-suite test
+        env:
+          BASE_URL: http://localhost:5173
+
+  selenium:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter demo-web build
+      - run: pnpm --filter demo-web preview &
+      - run: pnpm --filter selenium-suite test
+        env:
+          BASE_URL: http://localhost:5173
+          HEADLESS: "true"

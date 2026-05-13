@@ -1,0 +1,6 @@
+{
+  "validLocal": { "username": "admin", "password": "pass1234" },
+  "invalidLocal": { "username": "admin", "password": "wrong" },
+  "sauceStandard": { "username": "standard_user", "password": "secret_sauce" },
+  "sauceLocked": { "username": "locked_out_user", "password": "secret_sauce" }
+}

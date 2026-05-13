@@ -1,0 +1,21 @@
+node_modules/
+.turbo/
+dist/
+
+# Playwright
+playwright-report/
+test-results/
+.playwright/
+blob-report/
+
+# Selenium / generic
+screenshots/
+videos/
+downloads/
+
+# Env / IDE
+.env
+.env.local
+.idea/
+.vscode/
+*.log

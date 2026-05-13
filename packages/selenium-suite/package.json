@@ -1,0 +1,23 @@
+{
+  "name": "selenium-suite",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "test": "mocha --config .mocharc.json"
+  },
+  "dependencies": {
+    "@ta/shared-utils": "workspace:*",
+    "@ta/test-data": "workspace:*",
+    "selenium-webdriver": "^4.25.0"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.3.20",
+    "@types/mocha": "^10.0.9",
+    "@types/node": "^22.9.0",
+    "@types/selenium-webdriver": "^4.1.27",
+    "chai": "^4.5.0",
+    "mocha": "^10.8.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  }
+}
