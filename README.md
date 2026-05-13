@@ -1,3 +1,5 @@
+- [Playwright](https://playwright.dev/?utm_source=chatgpt.com)
+
 # Test Automation 학습 모노레포
 
 Playwright와 Selenium을 비교 학습하기 위한 pnpm + turbo 모노레포입니다.
