@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Demo Web - Playground</title>
+  <style>
+    body { font-family: sans-serif; max-width: 560px; margin: 40px auto; line-height: 1.5; }
+    section { border: 1px solid #ddd; border-radius: 8px; padding: 16px 20px; margin: 20px 0; }
+    h2 { font-size: 16px; margin: 0 0 12px; }
+    label { display: block; margin-top: 8px; }
+    input[type="text"], select { padding: 6px; min-width: 180px; }
+    button { padding: 6px 12px; margin-top: 8px; cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: 0.5; }
+    .out { margin-top: 10px; font-weight: bold; color: #036; }
+    .hidden { display: none; }
+    ul { padding-left: 18px; }
+    li { margin: 4px 0; }
+  </style>
+</head>
+<body>
+  <h1>Playwright 연습장</h1>
+  <p>쉬운 것부터 차례대로 연습해 보세요. 각 위젯에 안정적인 selector를 달아뒀습니다.</p>
+
+  <!-- 1) 텍스트 입력 → 인사 출력 : fill() / 텍스트 단언 -->
+  <section id="sec-greet">
+    <h2>1. 인사하기 (텍스트 입력 → 출력)</h2>
+    <label for="name-input">이름</label>
+    <input type="text" id="name-input" name="name" placeholder="이름을 입력" />
+    <button id="greet-btn">인사하기</button>
+    <div class="out" data-testid="greet-output"></div>
+  </section>
+
+  <!-- 2) 카운터 : 여러 번 클릭 / 상태 변화 단언 -->
+  <section id="sec-counter">
+    <h2>2. 카운터 (클릭 반복)</h2>
+    <button id="decrement" aria-label="감소">-</button>
+    <span data-testid="counter-value">0</span>
+    <button id="increment" aria-label="증가">+</button>
+    <button id="reset">초기화</button>
+  </section>
+
+  <!-- 3) 체크박스 동의 → 버튼 활성화 : 상태 의존 / disabled 단언 -->
+  <section id="sec-agree">
+    <h2>3. 약관 동의 (체크 시 버튼 활성화)</h2>
+    <label>
+      <input type="checkbox" id="agree-checkbox" /> 약관에 동의합니다
+    </label>
+    <button id="agree-submit" disabled>제출</button>
+    <div class="out" data-testid="agree-output"></div>
+  </section>
+
+  <!-- 4) 드롭다운 선택 : selectOption() -->
+  <section id="sec-select">
+    <h2>4. 드롭다운 선택</h2>
+    <label for="fruit-select">과일 선택</label>
+    <select id="fruit-select" name="fruit">
+      <option value="">-- 선택하세요 --</option>
+      <option value="apple">사과</option>
+      <option value="banana">바나나</option>
+      <option value="cherry">체리</option>
+    </select>
+    <div class="out" data-testid="select-output"></div>
+  </section>
+
+  <!-- 5) 표시/숨김 토글 : visibility 단언 / auto-waiting -->
+  <section id="sec-toggle">
+    <h2>5. 표시 / 숨김 토글</h2>
+    <button id="toggle-btn" aria-expanded="false">상세 보기</button>
+    <div id="toggle-box" class="hidden" data-testid="toggle-box">
+      숨겨진 상세 내용입니다.
+    </div>
+  </section>
+
+  <!-- 6) 지연 메시지 : auto-waiting / expect 재시도 연습 -->
+  <section id="sec-delay">
+    <h2>6. 지연 메시지 (1.5초 후 표시)</h2>
+    <button id="load-btn">불러오기</button>
+    <div class="out" data-testid="delay-output"></div>
+  </section>
+
+  <!-- 7) 동적 리스트 : DOM 추가/삭제, locator 개수 단언 -->
+  <section id="sec-list">
+    <h2>7. 할 일 목록 (추가 / 삭제)</h2>
+    <label for="todo-input">할 일</label>
+    <input type="text" id="todo-input" name="todo" placeholder="할 일 입력" />
+    <button id="add-todo">추가</button>
+    <ul id="todo-list" data-testid="todo-list"></ul>
+  </section>
+
+  <script>
+    // 1) 인사
+    document.getElementById('greet-btn').addEventListener('click', () => {
+      const name = document.getElementById('name-input').value.trim();
+      const out = document.querySelector('[data-testid="greet-output"]');
+      out.textContent = name ? `안녕하세요, ${name}님!` : '이름을 입력해 주세요.';
+    });
+
+    // 2) 카운터
+    const counter = document.querySelector('[data-testid="counter-value"]');
+    const setCounter = (n) => { counter.textContent = String(n); };
+    document.getElementById('increment').addEventListener('click', () => setCounter(+counter.textContent + 1));
+    document.getElementById('decrement').addEventListener('click', () => setCounter(+counter.textContent - 1));
+    document.getElementById('reset').addEventListener('click', () => setCounter(0));
+
+    // 3) 약관 동의
+    const agreeBox = document.getElementById('agree-checkbox');
+    const agreeSubmit = document.getElementById('agree-submit');
+    agreeBox.addEventListener('change', () => { agreeSubmit.disabled = !agreeBox.checked; });
+    agreeSubmit.addEventListener('click', () => {
+      document.querySelector('[data-testid="agree-output"]').textContent = '제출 완료!';
+    });
+
+    // 4) 드롭다운
+    const fruit = document.getElementById('fruit-select');
+    fruit.addEventListener('change', () => {
+      const out = document.querySelector('[data-testid="select-output"]');
+      out.textContent = fruit.value ? `선택: ${fruit.options[fruit.selectedIndex].text}` : '';
+    });
+
+    // 5) 토글
+    const toggleBtn = document.getElementById('toggle-btn');
+    const toggleBox = document.getElementById('toggle-box');
+    toggleBtn.addEventListener('click', () => {
+      const willShow = toggleBox.classList.contains('hidden');
+      toggleBox.classList.toggle('hidden');
+      toggleBtn.setAttribute('aria-expanded', String(willShow));
+      toggleBtn.textContent = willShow ? '닫기' : '상세 보기';
+    });
+
+    // 6) 지연 메시지
+    document.getElementById('load-btn').addEventListener('click', () => {
+      const out = document.querySelector('[data-testid="delay-output"]');
+      out.textContent = '불러오는 중...';
+      setTimeout(() => { out.textContent = '데이터 로드 완료!'; }, 1500);
+    });
+
+    // 7) 동적 리스트
+    const todoInput = document.getElementById('todo-input');
+    const todoList = document.getElementById('todo-list');
+    document.getElementById('add-todo').addEventListener('click', () => {
+      const text = todoInput.value.trim();
+      if (!text) return;
+      const li = document.createElement('li');
+      li.textContent = text;
+      const del = document.createElement('button');
+      del.textContent = '삭제';
+      del.setAttribute('aria-label', `${text} 삭제`);
+      del.addEventListener('click', () => li.remove());
+      li.appendChild(del);
+      todoList.appendChild(li);
+      todoInput.value = '';
+    });
+  </script>
+</body>
+</html>
