@@ -1,0 +1,45 @@
+{
+  "info": {
+    "name": "api-playground",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "로컬 api-playground 학습용 컬렉션. http://localhost:3001 기준."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3001" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{baseUrl}}/api/health", "host": ["{{baseUrl}}"], "path": ["api", "health"] }
+      }
+    },
+    {
+      "name": "List users",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{baseUrl}}/api/users", "host": ["{{baseUrl}}"], "path": ["api", "users"] }
+      }
+    },
+    {
+      "name": "Get user by id",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{baseUrl}}/api/users/1", "host": ["{{baseUrl}}"], "path": ["api", "users", "1"] }
+      }
+    },
+    {
+      "name": "Create user",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Charlie\",\n  \"email\": \"charlie@example.com\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/users", "host": ["{{baseUrl}}"], "path": ["api", "users"] }
+      }
+    }
+  ]
+}
