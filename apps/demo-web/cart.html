@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Demo Web - Cart</title>
+  <style>
+    body { font-family: sans-serif; max-width: 720px; margin: 40px auto; line-height: 1.5; }
+    section { border: 1px solid #ddd; border-radius: 8px; padding: 16px 20px; margin: 20px 0; }
+    h2 { font-size: 16px; margin: 0 0 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px; border-bottom: 1px solid #eee; text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
+    button { padding: 6px 10px; cursor: pointer; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .qty { display: inline-flex; align-items: center; gap: 6px; }
+    .qty span { min-width: 28px; display: inline-block; text-align: center; }
+    .coupon-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+    .coupon-row.disabled { color: #999; }
+    .summary-row { display: flex; justify-content: space-between; margin: 4px 0; }
+    .summary-row.total { font-weight: bold; font-size: 18px; border-top: 1px solid #ccc; padding-top: 8px; }
+    .msg { color: #c60; margin-top: 8px; min-height: 20px; }
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; }
+    .modal { background: #fff; padding: 24px 32px; border-radius: 8px; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <h1>장바구니</h1>
+
+  <section id="sec-cart">
+    <h2>상품</h2>
+    <table data-testid="cart-table">
+      <thead>
+        <tr>
+          <th>상품</th><th>단가</th><th>수량</th><th>라인 합계</th><th></th>
+        </tr>
+      </thead>
+      <tbody data-testid="cart-body"></tbody>
+    </table>
+    <p data-testid="empty-msg" hidden>장바구니가 비어 있습니다.</p>
+  </section>
+
+  <section id="sec-coupons">
+    <h2>쿠폰</h2>
+    <div data-testid="coupon-list"></div>
+    <div style="margin-top: 8px;">
+      <button data-testid="apply-coupon">쿠폰 적용</button>
+      <button data-testid="clear-coupon" hidden>쿠폰 해제</button>
+    </div>
+    <div class="msg" data-testid="coupon-msg" aria-live="polite"></div>
+  </section>
+
+  <section id="sec-summary">
+    <h2>결제 요약</h2>
+    <div class="summary-row">
+      <span>상품 금액 합계</span>
+      <span><span data-testid="subtotal">0</span>원</span>
+    </div>
+    <div class="summary-row">
+      <span>할인 금액</span>
+      <span>-<span data-testid="discount">0</span>원</span>
+    </div>
+    <div class="summary-row total">
+      <span>최종 결제 금액</span>
+      <span><span data-testid="total">0</span>원</span>
+    </div>
+    <div style="margin-top: 16px; text-align: right;">
+      <button data-testid="checkout">결제하기</button>
+    </div>
+  </section>
+
+  <div class="modal-backdrop" data-testid="checkout-modal" hidden>
+    <div class="modal">
+      <p>결제가 완료되었습니다.</p>
+      <button data-testid="modal-close">확인</button>
+    </div>
+  </div>
+
+  <script>
+    const TODAY = new Date('2026-05-27');
+
+    const initialItems = [
+      { id: 'P-001', name: '티셔츠', price: 12000, qty: 1 },
+      { id: 'P-002', name: '머그컵', price: 8500,  qty: 2 },
+      { id: 'P-003', name: '에코백', price: 15000, qty: 1 },
+    ];
+
+    const coupons = [
+      { code: 'FLAT5000', type: 'flat', value: 5000,   minOrder: 30000, cap: null,   expiresAt: '2099-12-31', label: 'FLAT5000 · 5,000원 할인 (3만원 이상)' },
+      { code: 'RATE10',   type: 'rate', value: 0.10,   minOrder: 20000, cap: 10000,  expiresAt: '2099-12-31', label: 'RATE10 · 10% 할인 (2만원 이상, 최대 1만원)' },
+      { code: 'RATE20',   type: 'rate', value: 0.20,   minOrder: 50000, cap: null,   expiresAt: '2024-12-31', label: 'RATE20 · 20% 할인 (5만원 이상)' },
+    ];
+
+    let items = initialItems.map(i => ({ ...i }));
+    let appliedCoupon = null;
+    let selectedCouponCode = null;
+
+    const $ = (sel) => document.querySelector(sel);
+    const byTid = (tid) => document.querySelector(`[data-testid="${tid}"]`);
+
+    function subtotal() {
+      return items.reduce((s, i) => s + i.price * i.qty, 0);
+    }
+
+    function isCouponApplicable(c, sub) {
+      if (new Date(c.expiresAt) < TODAY) return false;
+      if (sub < c.minOrder) return false;
+      return true;
+    }
+
+    function calcDiscount(c, sub) {
+      if (!c) return 0;
+      if (c.type === 'flat') return c.value;
+      const raw = Math.floor(sub * c.value);
+      return c.cap ? Math.min(raw, c.cap) : raw;
+    }
+
+    function render() {
+      const sub = subtotal();
+      const tbody = byTid('cart-body');
+      tbody.innerHTML = '';
+      items.forEach((it, idx) => {
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-testid', `cart-row-${it.id}`);
+        tr.innerHTML = `
+          <td>${it.name}</td>
+          <td>${it.price.toLocaleString()}원</td>
+          <td>
+            <span class="qty">
+              <button data-testid="qty-dec-${it.id}" ${it.qty <= 1 ? 'disabled' : ''}>-</button>
+              <span data-testid="qty-${it.id}">${it.qty}</span>
+              <button data-testid="qty-inc-${it.id}" ${it.qty >= 99 ? 'disabled' : ''}>+</button>
+            </span>
+          </td>
+          <td data-testid="line-total-${it.id}">${(it.price * it.qty).toLocaleString()}원</td>
+          <td><button data-testid="remove-${it.id}">삭제</button></td>
+        `;
+        tbody.appendChild(tr);
+        tr.querySelector(`[data-testid="qty-dec-${it.id}"]`).addEventListener('click', () => { it.qty--; afterCartChange(); });
+        tr.querySelector(`[data-testid="qty-inc-${it.id}"]`).addEventListener('click', () => { it.qty++; afterCartChange(); });
+        tr.querySelector(`[data-testid="remove-${it.id}"]`).addEventListener('click', () => { items = items.filter(x => x.id !== it.id); afterCartChange(); });
+      });
+
+      byTid('empty-msg').hidden = items.length > 0;
+
+      const couponList = byTid('coupon-list');
+      couponList.innerHTML = '';
+      coupons.forEach(c => {
+        const applicable = isCouponApplicable(c, sub);
+        const row = document.createElement('label');
+        row.className = 'coupon-row' + (applicable ? '' : ' disabled');
+        row.setAttribute('data-testid', `coupon-row-${c.code}`);
+        row.innerHTML = `
+          <input type="radio" name="coupon" value="${c.code}"
+            data-testid="coupon-radio-${c.code}"
+            ${applicable ? '' : 'disabled'}
+            ${selectedCouponCode === c.code ? 'checked' : ''} />
+          <span>${c.label}</span>
+        `;
+        row.querySelector('input').addEventListener('change', (e) => { selectedCouponCode = e.target.value; });
+        couponList.appendChild(row);
+      });
+
+      const discount = calcDiscount(appliedCoupon, sub);
+      const total = sub - discount;
+      byTid('subtotal').textContent = sub.toLocaleString();
+      byTid('discount').textContent = discount.toLocaleString();
+      byTid('total').textContent = total.toLocaleString();
+
+      byTid('apply-coupon').hidden = !!appliedCoupon;
+      byTid('clear-coupon').hidden = !appliedCoupon;
+      byTid('checkout').disabled = items.length === 0;
+    }
+
+    function afterCartChange() {
+      if (appliedCoupon && !isCouponApplicable(appliedCoupon, subtotal())) {
+        const removedCode = appliedCoupon.code;
+        appliedCoupon = null;
+        selectedCouponCode = null;
+        byTid('coupon-msg').textContent = `장바구니가 변경되어 쿠폰 ${removedCode} 이(가) 자동 해제되었습니다.`;
+      }
+      render();
+    }
+
+    byTid('apply-coupon').addEventListener('click', () => {
+      if (!selectedCouponCode) {
+        byTid('coupon-msg').textContent = '적용할 쿠폰을 선택하세요.';
+        return;
+      }
+      const c = coupons.find(x => x.code === selectedCouponCode);
+      if (!isCouponApplicable(c, subtotal())) {
+        byTid('coupon-msg').textContent = '선택한 쿠폰은 현재 적용할 수 없습니다.';
+        return;
+      }
+      appliedCoupon = c;
+      byTid('coupon-msg').textContent = `${c.code} 적용됨`;
+      render();
+    });
+
+    byTid('clear-coupon').addEventListener('click', () => {
+      appliedCoupon = null;
+      selectedCouponCode = null;
+      byTid('coupon-msg').textContent = '쿠폰을 해제했습니다.';
+      render();
+    });
+
+    byTid('checkout').addEventListener('click', () => {
+      byTid('checkout-modal').hidden = false;
+    });
+
+    byTid('modal-close').addEventListener('click', () => {
+      byTid('checkout-modal').hidden = true;
+    });
+
+    render();
+  </script>
+</body>
+</html>
