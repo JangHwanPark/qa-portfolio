@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Demo Cart</title>
+  <style>
+    body { font-family: sans-serif; max-width: 720px; margin: 32px auto; line-height: 1.5; }
+    h1 { font-size: 20px; }
+    .item { border: 1px solid #ddd; border-radius: 8px; padding: 14px 18px; margin: 12px 0; display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+    .item.soldout { background: #f7f7f7; color: #888; }
+    .name { font-weight: bold; }
+    .meta { font-size: 13px; color: #555; }
+    .controls { display: flex; align-items: center; gap: 6px; }
+    .controls button { width: 32px; height: 32px; cursor: pointer; }
+    .controls input { width: 56px; text-align: center; padding: 4px; }
+    .controls button:disabled, .controls input:disabled { opacity: 0.4; cursor: not-allowed; }
+    .delete { color: #c00; background: none; border: 1px solid #c00; border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+    .subtotal { font-weight: bold; color: #036; min-width: 80px; text-align: right; }
+    .total { margin-top: 20px; padding-top: 12px; border-top: 2px solid #333; display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; }
+    .notice { color: #c00; font-size: 13px; margin-top: 4px; min-height: 18px; }
+  </style>
+</head>
+<body>
+  <h1>장바구니</h1>
+  <p class="meta">수량 변경 / 삭제 / 재고·1인 최대·품절 제약을 검증하는 데모 페이지입니다.</p>
+
+  <div id="cart" data-testid="cart"></div>
+
+  <div class="total">
+    <span>총 결제 금액</span>
+    <span data-testid="total">0원</span>
+  </div>
+
+  <script type="module">
+    const items = [
+      { id: "A", name: "사과 (재고 충분)", price: 1500, qty: 1, stock: 99, maxPerUser: null, soldOut: false },
+      { id: "B", name: "바나나 (재고 3개 한정)", price: 2000, qty: 1, stock: 3, maxPerUser: null, soldOut: false },
+      { id: "C", name: "체리 (1인 최대 5개)", price: 8000, qty: 1, stock: 99, maxPerUser: 5, soldOut: false },
+      { id: "D", name: "복숭아 (품절)", price: 5000, qty: 0, stock: 0, maxPerUser: null, soldOut: true },
+    ];
+
+    const formatKRW = (n) => `${n.toLocaleString("ko-KR")}원`;
+
+    function maxAllowed(item) {
+      const limits = [item.stock];
+      if (item.maxPerUser !== null) limits.push(item.maxPerUser);
+      return Math.min(...limits);
+    }
+
+    function clampInput(item, requested) {
+      const max = maxAllowed(item);
+      if (!Number.isInteger(requested) || requested < 1) {
+        return { qty: 1, notice: "1개 이상 입력해 주세요." };
+      }
+      if (requested > max) {
+        const reason = item.maxPerUser !== null && requested > item.maxPerUser
+          ? `1인 최대 ${item.maxPerUser}개까지 구매 가능합니다.`
+          : `재고가 ${item.stock}개 남았습니다.`;
+        return { qty: max, notice: reason };
+      }
+      return { qty: requested, notice: "" };
+    }
+
+    function render() {
+      const root = document.getElementById("cart");
+      root.innerHTML = "";
+      const visible = items.filter((it) => !(it.soldOut && it.qty === 0) ? true : true);
+      let total = 0;
+
+      visible.forEach((item) => {
+        const subtotal = item.qty * item.price;
+        total += subtotal;
+
+        const el = document.createElement("div");
+        el.className = `item ${item.soldOut ? "soldout" : ""}`;
+        el.dataset.testid = `item-${item.id}`;
+
+        el.innerHTML = `
+          <div>
+            <div class="name" data-testid="name-${item.id}">${item.name}</div>
+            <div class="meta">단가 ${formatKRW(item.price)} · ${item.soldOut ? "품절" : `재고 ${item.stock}개${item.maxPerUser !== null ? ` · 1인 최대 ${item.maxPerUser}개` : ""}`}</div>
+            <div class="notice" data-testid="notice-${item.id}"></div>
+          </div>
+          <div>
+            <div class="controls">
+              <button data-action="dec" data-id="${item.id}" data-testid="dec-${item.id}" ${item.soldOut || item.qty <= 1 ? "disabled" : ""}>-</button>
+              <input type="number" min="1" value="${item.qty}" data-id="${item.id}" data-testid="qty-${item.id}" ${item.soldOut ? "disabled" : ""} />
+              <button data-action="inc" data-id="${item.id}" data-testid="inc-${item.id}" ${item.soldOut || item.qty >= maxAllowed(item) ? "disabled" : ""}>+</button>
+              <button class="delete" data-action="del" data-id="${item.id}" data-testid="del-${item.id}">삭제</button>
+            </div>
+            <div class="subtotal" data-testid="subtotal-${item.id}">${formatKRW(subtotal)}</div>
+          </div>
+        `;
+
+        root.appendChild(el);
+      });
+
+      document.querySelector('[data-testid="total"]').textContent = formatKRW(total);
+    }
+
+    function setNotice(id, msg) {
+      const el = document.querySelector(`[data-testid="notice-${id}"]`);
+      if (el) el.textContent = msg;
+    }
+
+    document.getElementById("cart").addEventListener("click", (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+      const action = t.dataset.action;
+      const id = t.dataset.id;
+      if (!action || !id) return;
+      const item = items.find((it) => it.id === id);
+      if (!item) return;
+
+      if (action === "inc") {
+        const next = item.qty + 1;
+        const { qty, notice } = clampInput(item, next);
+        item.qty = qty;
+        render();
+        setNotice(id, notice);
+      } else if (action === "dec") {
+        item.qty = Math.max(1, item.qty - 1);
+        render();
+        setNotice(id, "");
+      } else if (action === "del") {
+        const idx = items.findIndex((it) => it.id === id);
+        if (idx >= 0) items.splice(idx, 1);
+        render();
+      }
+    });
+
+    document.getElementById("cart").addEventListener("change", (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement)) return;
+      const id = t.dataset.id;
+      if (!id) return;
+      const item = items.find((it) => it.id === id);
+      if (!item) return;
+      const raw = Number(t.value);
+      const { qty, notice } = clampInput(item, raw);
+      item.qty = qty;
+      render();
+      setNotice(id, notice);
+    });
+
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{
+  "name": "@ta/cart-app",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite --port 5174",
+    "build": "vite build",
+    "preview": "vite preview --port 5174",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:repeat": "playwright test --repeat-each=10",
+    "report": "playwright show-report"
+  },
+  "dependencies": {
+    "@ta/shared-utils": "workspace:*",
+    "@ta/test-data": "workspace:*"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.2",
+    "@types/node": "^22.9.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}
