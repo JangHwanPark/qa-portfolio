@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Demo Signup</title>
+  <style>
+    body { font-family: sans-serif; max-width: 520px; margin: 32px auto; line-height: 1.5; padding: 0 16px; }
+    h1 { font-size: 20px; }
+    .meta { font-size: 13px; color: #555; }
+    .field { margin: 14px 0; }
+    .field label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 4px; }
+    .field input[type="text"], .field input[type="password"], .field input[type="email"] {
+      width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 14px;
+    }
+    .field input:focus { outline: 2px solid #036; outline-offset: -1px; }
+    .hint { font-size: 12px; color: #666; margin-top: 3px; min-height: 16px; }
+    .hint.error { color: #c00; }
+    .hint.ok { color: #086; }
+    .checkbox { display: flex; align-items: flex-start; gap: 6px; margin: 6px 0; font-size: 13px; }
+    .checkbox input { margin-top: 3px; }
+    .terms-group { border: 1px solid #eee; border-radius: 6px; padding: 10px 14px; margin: 14px 0; }
+    .terms-group h2 { font-size: 14px; margin: 0 0 8px; }
+    .required-mark { color: #c00; font-weight: normal; }
+    button.submit { width: 100%; padding: 10px; font-size: 15px; background: #036; color: #fff; border: 0; border-radius: 4px; cursor: pointer; margin-top: 12px; }
+    button.submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .result { margin-top: 16px; padding: 12px; border-radius: 4px; min-height: 20px; }
+    .result.success { background: #e8f5e9; color: #086; border: 1px solid #a5d6a7; }
+    .result.error { background: #fde7e7; color: #c00; border: 1px solid #f5a; }
+    .result:empty { display: none; }
+  </style>
+</head>
+<body>
+  <h1>회원가입</h1>
+  <p class="meta">이메일 인증 기반 신규 가입 데모 페이지. 검증 / 중복 / 약관 / 인증 흐름을 자동화한다.</p>
+
+  <form id="signup-form" novalidate>
+    <div class="field">
+      <label for="email">이메일 <span class="required-mark">*</span></label>
+      <input type="email" id="email" data-testid="email" autocomplete="off" />
+      <div class="hint" data-testid="email-hint"></div>
+    </div>
+
+    <div class="field">
+      <label for="password">비밀번호 <span class="required-mark">*</span></label>
+      <input type="password" id="password" data-testid="password" autocomplete="new-password" />
+      <div class="hint" data-testid="password-hint">8~20자, 영문 / 숫자 / 특수문자를 모두 포함</div>
+    </div>
+
+    <div class="field">
+      <label for="password-confirm">비밀번호 확인 <span class="required-mark">*</span></label>
+      <input type="password" id="password-confirm" data-testid="password-confirm" autocomplete="new-password" />
+      <div class="hint" data-testid="password-confirm-hint"></div>
+    </div>
+
+    <div class="field">
+      <label for="nickname">닉네임 <span class="required-mark">*</span></label>
+      <input type="text" id="nickname" data-testid="nickname" autocomplete="off" />
+      <div class="hint" data-testid="nickname-hint">2~10자</div>
+    </div>
+
+    <div class="field">
+      <label for="phone">휴대폰 번호 (선택)</label>
+      <input type="text" id="phone" data-testid="phone" autocomplete="off" placeholder="010-0000-0000" />
+      <div class="hint" data-testid="phone-hint"></div>
+    </div>
+
+    <div class="terms-group">
+      <h2>약관 동의</h2>
+      <label class="checkbox">
+        <input type="checkbox" data-testid="terms-service" />
+        <span>이용약관 동의 <span class="required-mark">(필수)</span></span>
+      </label>
+      <label class="checkbox">
+        <input type="checkbox" data-testid="terms-privacy" />
+        <span>개인정보 처리방침 동의 <span class="required-mark">(필수)</span></span>
+      </label>
+      <label class="checkbox">
+        <input type="checkbox" data-testid="terms-age" />
+        <span>만 14세 이상입니다 <span class="required-mark">(필수)</span></span>
+      </label>
+      <label class="checkbox">
+        <input type="checkbox" data-testid="terms-marketing-email" />
+        <span>마케팅 정보 이메일 수신 (선택)</span>
+      </label>
+      <label class="checkbox">
+        <input type="checkbox" data-testid="terms-marketing-sms" />
+        <span>마케팅 정보 SMS 수신 (선택)</span>
+      </label>
+    </div>
+
+    <button type="submit" class="submit" data-testid="submit">가입 신청</button>
+  </form>
+
+  <div class="result" data-testid="result"></div>
+
+  <script type="module">
+    const existingEmails = new Set(["existing@test.com", "user@example.com"]);
+    const pendingEmails = new Set(["pending@test.com"]);
+    const takenNicknames = new Set(["admin", "taker", "tester"]);
+
+    const $ = (sel) => document.querySelector(sel);
+    const setHint = (testid, msg, kind = "") => {
+      const el = document.querySelector(`[data-testid="${testid}"]`);
+      el.textContent = msg;
+      el.classList.remove("error", "ok");
+      if (kind) el.classList.add(kind);
+    };
+
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRe = /^010-\d{4}-\d{4}$/;
+    const passwordRe = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,20}$/;
+
+    const state = { email: false, password: false, passwordConfirm: false, nickname: false, phone: true };
+
+    function validateEmailFormat(value) {
+      if (!value) return { ok: false, msg: "이메일을 입력해 주세요." };
+      if (!emailRe.test(value)) return { ok: false, msg: "이메일 형식이 올바르지 않습니다." };
+      return { ok: true, msg: "" };
+    }
+
+    async function checkEmailDuplicate(value) {
+      await new Promise((r) => setTimeout(r, 200));
+      if (existingEmails.has(value)) return { ok: false, msg: "이미 가입된 이메일입니다." };
+      if (pendingEmails.has(value)) return { ok: false, msg: "인증 대기 중인 이메일입니다. 메일을 확인해 주세요." };
+      return { ok: true, msg: "사용 가능한 이메일입니다." };
+    }
+
+    $("#email").addEventListener("blur", async (e) => {
+      const v = e.target.value.trim();
+      const fmt = validateEmailFormat(v);
+      if (!fmt.ok) { setHint("email-hint", fmt.msg, "error"); state.email = false; return; }
+      setHint("email-hint", "확인 중...", "");
+      const dup = await checkEmailDuplicate(v);
+      setHint("email-hint", dup.msg, dup.ok ? "ok" : "error");
+      state.email = dup.ok;
+    });
+
+    $("#password").addEventListener("input", (e) => {
+      const v = e.target.value;
+      if (!v) { setHint("password-hint", "8~20자, 영문 / 숫자 / 특수문자를 모두 포함", ""); state.password = false; }
+      else if (v.length < 8 || v.length > 20) { setHint("password-hint", "8~20자여야 합니다.", "error"); state.password = false; }
+      else if (!passwordRe.test(v)) { setHint("password-hint", "영문 / 숫자 / 특수문자를 모두 포함해야 합니다.", "error"); state.password = false; }
+      else { setHint("password-hint", "사용 가능한 비밀번호입니다.", "ok"); state.password = true; }
+      const cv = $("#password-confirm").value;
+      if (cv) $("#password-confirm").dispatchEvent(new Event("input"));
+    });
+
+    $("#password-confirm").addEventListener("input", (e) => {
+      const v = e.target.value;
+      const pw = $("#password").value;
+      if (!v) { setHint("password-confirm-hint", "", ""); state.passwordConfirm = false; }
+      else if (v !== pw) { setHint("password-confirm-hint", "비밀번호가 일치하지 않습니다.", "error"); state.passwordConfirm = false; }
+      else { setHint("password-confirm-hint", "비밀번호가 일치합니다.", "ok"); state.passwordConfirm = true; }
+    });
+
+    $("#nickname").addEventListener("blur", async (e) => {
+      const v = e.target.value.trim();
+      if (!v) { setHint("nickname-hint", "닉네임을 입력해 주세요.", "error"); state.nickname = false; return; }
+      if (v.length < 2 || v.length > 10) { setHint("nickname-hint", "2~10자여야 합니다.", "error"); state.nickname = false; return; }
+      setHint("nickname-hint", "확인 중...", "");
+      await new Promise((r) => setTimeout(r, 200));
+      if (takenNicknames.has(v)) { setHint("nickname-hint", "이미 사용 중인 닉네임입니다.", "error"); state.nickname = false; return; }
+      setHint("nickname-hint", "사용 가능한 닉네임입니다.", "ok");
+      state.nickname = true;
+    });
+
+    $("#phone").addEventListener("blur", (e) => {
+      const v = e.target.value.trim();
+      if (!v) { setHint("phone-hint", "", ""); state.phone = true; return; }
+      if (!phoneRe.test(v)) { setHint("phone-hint", "010-0000-0000 형식으로 입력해 주세요.", "error"); state.phone = false; return; }
+      setHint("phone-hint", "사용 가능한 번호입니다.", "ok");
+      state.phone = true;
+    });
+
+    function showResult(kind, msg) {
+      const el = $('[data-testid="result"]');
+      el.className = `result ${kind}`;
+      el.textContent = msg;
+    }
+
+    $("#signup-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      $("#email").dispatchEvent(new Event("blur"));
+      $("#password").dispatchEvent(new Event("input"));
+      $("#password-confirm").dispatchEvent(new Event("input"));
+      $("#nickname").dispatchEvent(new Event("blur"));
+      $("#phone").dispatchEvent(new Event("blur"));
+      await new Promise((r) => setTimeout(r, 250));
+
+      if (!state.email) return showResult("error", "이메일을 다시 확인해 주세요.");
+      if (!state.password) return showResult("error", "비밀번호 정책을 확인해 주세요.");
+      if (!state.passwordConfirm) return showResult("error", "비밀번호 확인이 일치하지 않습니다.");
+      if (!state.nickname) return showResult("error", "닉네임을 다시 확인해 주세요.");
+      if (!state.phone) return showResult("error", "휴대폰 번호 형식을 확인해 주세요.");
+
+      if (!document.querySelector('[data-testid="terms-service"]').checked) return showResult("error", "이용약관에 동의해 주세요.");
+      if (!document.querySelector('[data-testid="terms-privacy"]').checked) return showResult("error", "개인정보 처리방침에 동의해 주세요.");
+      if (!document.querySelector('[data-testid="terms-age"]').checked) return showResult("error", "만 14세 이상만 가입 가능합니다.");
+
+      const email = $("#email").value.trim();
+      pendingEmails.add(email);
+      showResult("success", `이메일 인증 링크가 ${email} 로 발송되었습니다. (24시간 유효)`);
+    });
+  </script>
+</body>
+</html>
